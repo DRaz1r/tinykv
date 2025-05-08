@@ -585,6 +585,7 @@ func get(client tinykvpb.TinyKvClient, key string) (string, error) {
 	req := &kvrpcpb.RawGetRequest{
 		Context: &ctx1,
 		Key:     []byte(key),
+		Cf:      "default",
 	}
 	ctx := context.Background()
 	resp, err := client.RawGet(ctx, req)
