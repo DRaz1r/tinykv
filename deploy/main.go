@@ -519,20 +519,19 @@ func get(client tinykvpb.TinyKvClient, key string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	req := &kvrpcpb.RawGetRequest{
+	req := &kvrpcpb.GetRequest{
 		Context: &ctx1,
 		Key:     []byte(key),
-		Cf:      "default",
 	}
 	ctx := context.Background()
-	resp, err := client.RawGet(ctx, req)
+	resp, err := client.KvGet(ctx, req)
 	if err != nil {
 		return "", err
 	}
 	if resp.NotFound {
 		return "", errors.New("key not found")
-	} else if len(resp.Error) != 0 {
-		return "", errors.New(string(resp.Error))
+	} else if resp.Error != nil {
+		return "", errors.New(resp.Error.String())
 	} else if resp.RegionError != nil {
 		return "", errors.New(string(resp.RegionError.String()))
 	}
