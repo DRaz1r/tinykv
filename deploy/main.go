@@ -280,7 +280,7 @@ func GetAllTinyKVNodesInfo(client pd.Client, ctx context.Context) error {
 		// 扫描每个存储节点下的区域（Region）和对应的 peer
 		key := []byte{}
 		endKey := []byte{}
-		regions, peers, err := client.ScanRegions(ctx, key, endKey, 0)
+		regions, leaderPeers, err := client.ScanRegions(ctx, key, endKey, 0)
 		if err != nil {
 			fmt.Printf("failed to scan regions for store %d: %v\n", store.GetId(), err)
 			continue
@@ -288,9 +288,13 @@ func GetAllTinyKVNodesInfo(client pd.Client, ctx context.Context) error {
 
 		for i, region := range regions {
 			fmt.Printf("  Region ID: %d, Region Start Key: %s\n", region.GetId(), region.GetStartKey())
-			peer := peers[i]
+			peer := leaderPeers[i]
 			fmt.Printf("    Leader Peer ID: %d\n", peer.GetId())
 			// 可以进一步处理 peer 信息，例如获取其他 peer 等
+			peers := region.GetPeers()
+			for _, peer := range peers {
+				fmt.Printf("    Peer ID: %d In Store: %d", peer.GetId(), peer.GetStoreId())
+			}
 		}
 	}
 
