@@ -245,7 +245,7 @@ var (
 		Short: "get all tinykv nodes info",
 		Run: func(cmd *cobra.Command, args []string) {
 			// 实例化 Client
-			pdAddrs := []string{"127.0.0.1"}
+			pdAddrs := []string{"127.0.0.1:2379"}
 			security := pd.SecurityOption{
 				CAPath:   "",
 				CertPath: "",
