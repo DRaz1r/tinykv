@@ -437,7 +437,6 @@ func getContextForSet() (kvrpcpb.Context, error) {
 		return retCtx, err
 	}
 	for i, region := range regions {
-		fmt.Printf("  Region ID: %d, Region Start Key: %s\n", region.GetId(), region.GetStartKey())
 		leaderPeer := leaderPeers[i]
 		peers := region.GetPeers()
 		for _, peer := range peers {
