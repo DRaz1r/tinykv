@@ -3,13 +3,17 @@ package main
 import (
 	"context"
 	"fmt"
-	pd "github.com/pingcap-incubator/tinykv/scheduler/client"
 	"net"
 	"os"
 	"os/exec"
 	"path"
 	"strconv"
 	"time"
+
+	"github.com/pingcap-incubator/tinykv/proto/pkg/kvrpcpb"
+	"github.com/pingcap-incubator/tinykv/proto/pkg/tinykvpb"
+	pd "github.com/pingcap-incubator/tinykv/scheduler/client"
+	"google.golang.org/grpc"
 
 	"github.com/pingcap/log"
 	"github.com/pkg/errors"
@@ -264,7 +268,144 @@ var (
 			}
 		},
 	}
+	// 定义 get 命令
+	getCmd = &cobra.Command{
+		Use:   "get",
+		Short: "Get a key from TinyKV",
+		Run: func(cmd *cobra.Command, args []string) {
+			// 解析命令行参数
+			addr := cmd.Flags().String("addr", "127.0.0.1:20160", "TinyKV server address")
+			key := cmd.Flags().String("key", "", "Key to operate on")
+
+			// 建立 gRPC 连接
+			conn, err := grpc.Dial(*addr, grpc.WithInsecure())
+			if err != nil {
+				log.Fatal("Failed to connect: %v", zap.Error(err))
+			}
+			defer conn.Close()
+
+			client := tinykvpb.NewTinyKvClient(conn)
+
+			// 执行 get 命令
+			getResp, err := get(client, *key)
+			if err != nil {
+				log.Fatal("Failed to get key: %v", zap.Error(err))
+			}
+			if getResp.NotFound {
+				fmt.Println("Key not found")
+			} else {
+				fmt.Printf("Value: %s\n", string(getResp.Value))
+			}
+		},
+	}
+
+	// 定义 set 命令
+	setCmd = &cobra.Command{
+		Use:   "set",
+		Short: "Set a key-value pair in TinyKV",
+		Run: func(cmd *cobra.Command, args []string) {
+			// 解析命令行参数
+			addr := cmd.Flags().String("addr", "127.0.0.1:20160", "TinyKV server address")
+			key := cmd.Flags().String("key", "", "Key to operate on")
+			value := cmd.Flags().String("value", "", "Value to set")
+
+			// 建立 gRPC 连接
+			conn, err := grpc.Dial(*addr, grpc.WithInsecure())
+			if err != nil {
+				log.Fatal("Failed to connect: %v", zap.Error(err))
+			}
+			defer conn.Close()
+
+			client := tinykvpb.NewTinyKvClient(conn)
+
+			// 执行 set 命令
+			err = set(client, *key, *value)
+			if err != nil {
+				log.Fatal("Failed to set key: %v", zap.Error(err))
+			}
+			fmt.Println("Key set successfully")
+		},
+	}
+
+	scaleOutCmd = &cobra.Command{
+		Use:   "scale-out",
+		Short: "Scale out the cluster by adding a new tinykv node",
+		Run: func(cmd *cobra.Command, args []string) {
+			// 确定新节点的编号
+			newNodeNumber := nodeNumber
+			newKVPath := path.Join(deployPath, fmt.Sprintf("tinykv%d", newNodeNumber))
+
+			// 创建新节点的目录
+			err := os.Mkdir(newKVPath, os.ModePerm)
+			if err != nil {
+				log.Fatal("create new tinykv dir failed", zap.Error(err))
+			}
+
+			// 复制新的 tinykv 二进制文件到新节点目录
+			_, err = exec.Command("copy", path.Join(binaryPath, tinykv), newKVPath).Output()
+			if err != nil {
+				log.Fatal("copy tinykv binary to new path failed", zap.Error(err),
+					zap.String("binaryPath", binaryPath), zap.String("newKVPath", newKVPath))
+			}
+
+			// 计算新节点的端口
+			newKVPort := kvPort + newNodeNumber
+
+			// 检查端口是否可用
+			_, err = Check(newKVPort)
+			if err != nil {
+				log.Fatal("check new kv port failed", zap.Error(err), zap.Int("new kv port", newKVPort))
+			}
+
+			// 启动新节点
+			t := time.Now()
+			tstr := t.Format("20060102150405")
+			logName := fmt.Sprintf("log_%s", tstr)
+			startKvCmd := fmt.Sprintf(`nohup ./%s > %s --path . --addr "127.0.0.1:%d" 2>&1 &`, tinykv, logName, newKVPort)
+			log.Info("start new tinykv cmd", zap.String("cmd", startKvCmd))
+			shellCmd := exec.Command("bash", "-c", startKvCmd)
+			shellCmd.Dir = newKVPath
+			_, err = shellCmd.Output()
+			if err != nil {
+				os.Remove(path.Join(newKVPath, logName))
+				log.Fatal("start new tinykv failed", zap.Error(err))
+			}
+
+			// 等待端口被使用
+			err = waitPortUse([]int{newKVPort})
+			if err != nil {
+				log.Fatal("wait new tinykv port in use error", zap.Error(err))
+			}
+
+			// 增加节点数量
+			nodeNumber++
+
+			log.Info("scale out cluster finished")
+		},
+	}
 )
+
+// get 函数调用 TinyKV 的 RawGet 接口获取键值
+func get(client tinykvpb.TinyKvClient, key string) (*kvrpcpb.RawGetResponse, error) {
+	req := &kvrpcpb.RawGetRequest{
+		Key: []byte(key),
+		Cf:  "default",
+	}
+	ctx := context.Background()
+	return client.RawGet(ctx, req)
+}
+
+// set 函数调用 TinyKV 的 RawPut 接口设置键值
+func set(client tinykvpb.TinyKvClient, key, value string) error {
+	req := &kvrpcpb.RawPutRequest{
+		Key:   []byte(key),
+		Value: []byte(value),
+		Cf:    "default",
+	}
+	ctx := context.Background()
+	_, err := client.RawPut(ctx, req)
+	return err
+}
 
 // 获取所有节点信息的函数
 func GetAllTinyKVNodesInfo(client pd.Client, ctx context.Context) error {
@@ -381,6 +522,8 @@ func init() {
 	rootCmd.AddCommand(upgradeCmd)
 	rootCmd.AddCommand(destroyCmd)
 	rootCmd.AddCommand(getNodesCmd)
+	rootCmd.AddCommand(getCmd)
+	rootCmd.AddCommand(setCmd)
 }
 
 func main() {
