@@ -417,7 +417,7 @@ var (
 			}
 
 			// 复制新的 tinykv 二进制文件到新节点目录
-			_, err = exec.Command("copy", path.Join(binaryPath, tinykv), newKVPath).Output()
+			_, err = exec.Command("cp", path.Join(binaryPath, tinykv), newKVPath).Output()
 			if err != nil {
 				log.Fatal("copy tinykv binary to new path failed", zap.Error(err),
 					zap.String("binaryPath", binaryPath), zap.String("newKVPath", newKVPath))
@@ -687,9 +687,9 @@ func setByTxn(client tinykvpb.TinyKvClient, key, value string) error {
 		Mutations:    []*kvrpcpb.Mutation{mutation},
 		PrimaryLock:  primaryKey,
 		StartVersion: startVersion,
-		LockTtl:      1000, // 锁的生存时间，单位毫秒
+		LockTtl:      100000, // 锁的生存时间，单位毫秒
 	}
-
+	time.Sleep(10000)
 	// 调用 KvPrewrite
 	prewriteResp, err := client.KvPrewrite(ctx, prewriteReq)
 	if err != nil {
@@ -730,25 +730,20 @@ func GetAllTinyKVNodesInfo(client pd.Client, ctx context.Context) error {
 
 	for _, store := range stores {
 		fmt.Printf("Store ID: %d, Address: %s\n", store.GetId(), store.GetAddress())
+	}
+	// 扫描每个存储节点下的区域（Region）和对应的 peer
+	key := []byte{}
+	endKey := []byte{}
+	regions, leaderPeers, err := client.ScanRegions(ctx, key, endKey, 0)
 
-		// 扫描每个存储节点下的区域（Region）和对应的 peer
-		key := []byte{}
-		endKey := []byte{}
-		regions, leaderPeers, err := client.ScanRegions(ctx, key, endKey, 0)
-		if err != nil {
-			fmt.Printf("failed to scan regions for store %d: %v\n", store.GetId(), err)
-			continue
-		}
-
-		for i, region := range regions {
-			fmt.Printf("  Region ID: %d, Region Start Key: %s\n", region.GetId(), region.GetStartKey())
-			peer := leaderPeers[i]
-			fmt.Printf("    Leader Peer ID: %d\n", peer.GetId())
-			// 可以进一步处理 peer 信息，例如获取其他 peer 等
-			peers := region.GetPeers()
-			for _, peer := range peers {
-				fmt.Printf("    Peer ID: %d In Store: %d\n", peer.GetId(), peer.GetStoreId())
-			}
+	for i, region := range regions {
+		fmt.Printf("  Region ID: %d, Region Start Key: %s\n", region.GetId(), region.GetStartKey())
+		peer := leaderPeers[i]
+		fmt.Printf("    Leader Peer ID: %d\n", peer.GetId())
+		// 可以进一步处理 peer 信息，例如获取其他 peer 等
+		peers := region.GetPeers()
+		for _, peer := range peers {
+			fmt.Printf("    Peer ID: %d In Store: %d\n", peer.GetId(), peer.GetStoreId())
 		}
 	}
 
