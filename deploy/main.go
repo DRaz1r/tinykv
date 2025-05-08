@@ -689,7 +689,7 @@ func setByTxn(client tinykvpb.TinyKvClient, key, value string) error {
 		StartVersion: startVersion,
 		LockTtl:      100000, // 锁的生存时间，单位毫秒
 	}
-	time.Sleep(10000)
+	time.Sleep(10000 * 10)
 	// 调用 KvPrewrite
 	prewriteResp, err := client.KvPrewrite(ctx, prewriteReq)
 	if err != nil {
@@ -716,7 +716,6 @@ func setByTxn(client tinykvpb.TinyKvClient, key, value string) error {
 	if commitResp.Error != nil {
 		return errors.New(commitResp.Error.String())
 	}
-	fmt.Println("通过事务写入成功")
 	return nil
 }
 
