@@ -400,9 +400,11 @@ var (
 
 // get 函数调用 TinyKV 的 RawGet 接口获取键值
 func get(client tinykvpb.TinyKvClient, key string) (*kvrpcpb.RawGetResponse, error) {
+	ctx1 := kvrpcpb.Context{}
 	req := &kvrpcpb.RawGetRequest{
-		Key: []byte(key),
-		Cf:  "default",
+		Context: &ctx1,
+		Key:     []byte(key),
+		Cf:      "default",
 	}
 	ctx := context.Background()
 	return client.RawGet(ctx, req)
@@ -410,10 +412,12 @@ func get(client tinykvpb.TinyKvClient, key string) (*kvrpcpb.RawGetResponse, err
 
 // set 函数调用 TinyKV 的 RawPut 接口设置键值
 func set(client tinykvpb.TinyKvClient, key, value string) error {
+	ctx1 := kvrpcpb.Context{}
 	req := &kvrpcpb.RawPutRequest{
-		Key:   []byte(key),
-		Value: []byte(value),
-		Cf:    "default",
+		Context: &ctx1,
+		Key:     []byte(key),
+		Value:   []byte(value),
+		Cf:      "default",
 	}
 	ctx := context.Background()
 	_, err := client.RawPut(ctx, req)
