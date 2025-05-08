@@ -293,7 +293,7 @@ func GetAllTinyKVNodesInfo(client pd.Client, ctx context.Context) error {
 			// 可以进一步处理 peer 信息，例如获取其他 peer 等
 			peers := region.GetPeers()
 			for _, peer := range peers {
-				fmt.Printf("    Peer ID: %d In Store: %d", peer.GetId(), peer.GetStoreId())
+				fmt.Printf("    Peer ID: %d In Store: %d\n", peer.GetId(), peer.GetStoreId())
 			}
 		}
 	}
