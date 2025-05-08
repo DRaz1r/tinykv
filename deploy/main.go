@@ -530,11 +530,11 @@ func get(client tinykvpb.TinyKvClient, key string) (string, error) {
 		return "", err
 	}
 	if resp.NotFound {
-		fmt.Println("Key not found")
+		return "", errors.New("key not found")
 	} else if len(resp.Error) != 0 {
-		fmt.Println(resp.Error)
+		return "", errors.New(string(resp.Error))
 	} else if resp.RegionError != nil {
-		fmt.Printf("Region error: %s\n", resp.RegionError.String())
+		return "", errors.New(string(resp.RegionError.String()))
 	}
 	return string(resp.Value), nil
 }
