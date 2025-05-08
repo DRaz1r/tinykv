@@ -463,6 +463,9 @@ func getContextForSet() (kvrpcpb.Context, error) {
 
 func getContextForGet(key string) (kvrpcpb.Context, error) {
 	retCtx := kvrpcpb.Context{}
+	var storeID uint64
+	var peerID uint64
+
 	pdAddrs := []string{"127.0.0.1:2379"}
 	security := pd.SecurityOption{
 		CAPath:   "",
@@ -475,6 +478,18 @@ func getContextForGet(key string) (kvrpcpb.Context, error) {
 		return retCtx, err
 	}
 	defer pdClient.Close()
+
+	stores, err := pdClient.GetAllStores(context.Background())
+	if err != nil {
+		return retCtx, fmt.Errorf("failed to get all stores: %v", err)
+	}
+
+	for _, store := range stores {
+		if store.GetAddress() == tikvAddr {
+			storeID = store.GetId()
+		}
+	}
+
 	region, peer, err := pdClient.GetRegion(context.Background(), []byte(key))
 	if err != nil {
 		return retCtx, fmt.Errorf("failed to get region by key %s: %v", key, err)
@@ -482,12 +497,17 @@ func getContextForGet(key string) (kvrpcpb.Context, error) {
 	if region == nil || peer == nil {
 		return retCtx, fmt.Errorf("no region found with key %s", key)
 	}
+	for _, peer := range region.Peers {
+		if peer.GetStoreId() == storeID {
+			peerID = peer.GetId()
+		}
+	}
 	retCtx = kvrpcpb.Context{
 		RegionId:    region.GetId(),
 		RegionEpoch: region.GetRegionEpoch(),
 		Peer: &metapb.Peer{
-			Id:      peer.GetId(),
-			StoreId: peer.GetStoreId(),
+			Id:      peerID,
+			StoreId: storeID,
 		},
 	}
 	return retCtx, nil
@@ -502,6 +522,7 @@ func get(client tinykvpb.TinyKvClient, key string) (string, error) {
 	req := &kvrpcpb.GetRequest{
 		Context: &ctx1,
 		Key:     []byte(key),
+		Version: ctx1.RegionEpoch.Version,
 	}
 	ctx := context.Background()
 	resp, err := client.KvGet(ctx, req)
