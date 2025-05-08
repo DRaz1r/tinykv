@@ -838,6 +838,8 @@ func init() {
 	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(setCmd)
 	rootCmd.AddCommand(scaleOutCmd)
+	rootCmd.AddCommand(setByTxnCmd)
+	rootCmd.AddCommand(getByTxnCmd)
 
 	getCmd.Flags().StringVarP(&tikvAddr, "tikv_addr", "", "127.0.0.1:20160", "TinyKV server address")
 	setCmd.Flags().StringVarP(&tikvAddr, "tikv_addr", "", "127.0.0.1:20160", "TinyKV server address")
