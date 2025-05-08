@@ -38,6 +38,10 @@ var (
 	schedulerPort = 2379
 	kvPort        = 20160
 
+	tikvAddr  string
+	tikvKey   string
+	tikvValue string
+
 	deployCmd = &cobra.Command{
 		Use:   "deploy",
 		Short: "deploy a local cluster",
@@ -274,11 +278,11 @@ var (
 		Short: "Get a key from TinyKV",
 		Run: func(cmd *cobra.Command, args []string) {
 			// 解析命令行参数
-			addr := cmd.Flags().String("addr", "127.0.0.1:20160", "TinyKV server address")
-			key := cmd.Flags().String("key", "", "Key to operate on")
+			addr := tikvAddr
+			key := tikvKey
 
 			// 建立 gRPC 连接
-			conn, err := grpc.Dial(*addr, grpc.WithInsecure())
+			conn, err := grpc.Dial(addr, grpc.WithInsecure())
 			if err != nil {
 				log.Fatal("Failed to connect: %v", zap.Error(err))
 			}
@@ -287,7 +291,7 @@ var (
 			client := tinykvpb.NewTinyKvClient(conn)
 
 			// 执行 get 命令
-			getResp, err := get(client, *key)
+			getResp, err := get(client, key)
 			if err != nil {
 				log.Fatal("Failed to get key: %v", zap.Error(err))
 			}
@@ -305,12 +309,12 @@ var (
 		Short: "Set a key-value pair in TinyKV",
 		Run: func(cmd *cobra.Command, args []string) {
 			// 解析命令行参数
-			addr := cmd.Flags().String("addr", "127.0.0.1:20160", "TinyKV server address")
-			key := cmd.Flags().String("key", "", "Key to operate on")
-			value := cmd.Flags().String("value", "", "Value to set")
+			addr := tikvAddr
+			key := tikvKey
+			value := tikvValue
 
 			// 建立 gRPC 连接
-			conn, err := grpc.Dial(*addr, grpc.WithInsecure())
+			conn, err := grpc.Dial(addr, grpc.WithInsecure())
 			if err != nil {
 				log.Fatal("Failed to connect: %v", zap.Error(err))
 			}
@@ -319,7 +323,7 @@ var (
 			client := tinykvpb.NewTinyKvClient(conn)
 
 			// 执行 set 命令
-			err = set(client, *key, *value)
+			err = set(client, key, value)
 			if err != nil {
 				log.Fatal("Failed to set key: %v", zap.Error(err))
 			}
@@ -524,6 +528,15 @@ func init() {
 	rootCmd.AddCommand(getNodesCmd)
 	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(setCmd)
+	rootCmd.AddCommand(scaleOutCmd)
+
+	getCmd.Flags().StringVarP(&tikvAddr, "tikv_addr", "", "127.0.0.1:20160", "TinyKV server address")
+	setCmd.Flags().StringVarP(&tikvAddr, "tikv_addr", "", "127.0.0.1:20160", "TinyKV server address")
+
+	getCmd.Flags().StringVarP(&tikvKey, "key", "", "", "Key")
+	setCmd.Flags().StringVarP(&tikvKey, "key", "", "", "Key")
+
+	setCmd.Flags().StringVarP(&tikvValue, "value", "", "", "Valuet")
 }
 
 func main() {
