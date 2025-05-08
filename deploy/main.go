@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"google.golang.org/grpc/keepalive"
 	"net"
 	"os"
 	"os/exec"
@@ -282,9 +283,13 @@ var (
 			key := tikvKey
 
 			// 建立 gRPC 连接
-			conn, err := grpc.Dial(addr, grpc.WithInsecure())
+			conn, err := grpc.Dial(addr, grpc.WithInsecure(),
+				grpc.WithKeepaliveParams(keepalive.ClientParameters{
+					Time:    3 * time.Second,
+					Timeout: 60 * time.Second,
+				}))
 			if err != nil {
-				log.Fatal("Failed to connect: %v", zap.Error(err))
+				log.Fatal("Failed to connect", zap.Error(err))
 			}
 			defer conn.Close()
 
@@ -293,7 +298,7 @@ var (
 			// 执行 get 命令
 			getResp, err := get(client, key)
 			if err != nil {
-				log.Fatal("Failed to get key: %v", zap.Error(err))
+				log.Fatal("Failed to get key", zap.Error(err))
 			}
 			if getResp.NotFound {
 				fmt.Println("Key not found")
@@ -314,9 +319,13 @@ var (
 			value := tikvValue
 
 			// 建立 gRPC 连接
-			conn, err := grpc.Dial(addr, grpc.WithInsecure())
+			conn, err := grpc.Dial(addr, grpc.WithInsecure(),
+				grpc.WithKeepaliveParams(keepalive.ClientParameters{
+					Time:    3 * time.Second,
+					Timeout: 60 * time.Second,
+				}))
 			if err != nil {
-				log.Fatal("Failed to connect: %v", zap.Error(err))
+				log.Fatal("Failed to connect", zap.Error(err))
 			}
 			defer conn.Close()
 
@@ -325,7 +334,7 @@ var (
 			// 执行 set 命令
 			err = set(client, key, value)
 			if err != nil {
-				log.Fatal("Failed to set key: %v", zap.Error(err))
+				log.Fatal("Failed to set key", zap.Error(err))
 			}
 			fmt.Println("Key set successfully")
 		},
