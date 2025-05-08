@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/pingcap-incubator/tinykv/proto/pkg/metapb"
 	"net"
 	"os"
 	"os/exec"
@@ -297,18 +298,11 @@ var (
 			client := tinykvpb.NewTinyKvClient(conn)
 
 			// 执行 get 命令
-			getResp, err := get(client, key)
+			value, err := get(client, key)
 			if err != nil {
 				log.Fatal("Failed to get key", zap.Error(err))
-			}
-			if getResp.NotFound {
-				fmt.Println("Key not found")
-			} else if len(getResp.Error) != 0 {
-				fmt.Println(getResp.Error)
-			} else if getResp.RegionError != nil {
-				fmt.Printf("Region error: %s\n", getResp.RegionError.String())
 			} else {
-				fmt.Printf("Value: %s\n", string(getResp.Value))
+				fmt.Printf("Value: %s\n", value)
 			}
 		},
 	}
@@ -403,21 +397,136 @@ var (
 	}
 )
 
+func getContextForSet() (kvrpcpb.Context, error) {
+	retCtx := kvrpcpb.Context{}
+	var (
+		storeID     uint64
+		peerID      uint64
+		regionID    uint64
+		regionEpoch *metapb.RegionEpoch
+	)
+
+	pdAddrs := []string{"127.0.0.1:2379"}
+	security := pd.SecurityOption{
+		CAPath:   "",
+		CertPath: "",
+		KeyPath:  "",
+	}
+	pdClient, err := pd.NewClient(pdAddrs, security)
+	if err != nil {
+		log.Fatal("failed to create PD client", zap.Error(err))
+		return retCtx, err
+	}
+	defer pdClient.Close()
+
+	stores, err := pdClient.GetAllStores(context.Background())
+	if err != nil {
+		return retCtx, fmt.Errorf("failed to get all stores: %v", err)
+	}
+
+	for _, store := range stores {
+		if store.GetAddress() == tikvAddr {
+			storeID = store.GetId()
+		}
+	}
+
+	stkey := []byte{}
+	endKey := []byte{}
+	regions, leaderPeers, err := pdClient.ScanRegions(context.Background(), stkey, endKey, 0)
+	if err != nil {
+		return retCtx, err
+	}
+	for i, region := range regions {
+		fmt.Printf("  Region ID: %d, Region Start Key: %s\n", region.GetId(), region.GetStartKey())
+		leaderPeer := leaderPeers[i]
+		peers := region.GetPeers()
+		for _, peer := range peers {
+			if peer.GetStoreId() == storeID && peer.GetId() == leaderPeer.GetId() {
+				peerID = peer.GetId()
+				regionID = region.GetId()
+				regionEpoch = region.GetRegionEpoch()
+			}
+		}
+	}
+	if peerID == 0 {
+		return retCtx, fmt.Errorf("no leader peer found with store ID %d address %s", storeID, tikvAddr)
+	}
+	retCtx = kvrpcpb.Context{
+		RegionId:    regionID,
+		RegionEpoch: regionEpoch,
+		Peer: &metapb.Peer{
+			Id:      peerID,
+			StoreId: storeID,
+		},
+	}
+	return retCtx, nil
+}
+
+func getContextForGet(key string) (kvrpcpb.Context, error) {
+	retCtx := kvrpcpb.Context{}
+	pdAddrs := []string{"127.0.0.1:2379"}
+	security := pd.SecurityOption{
+		CAPath:   "",
+		CertPath: "",
+		KeyPath:  "",
+	}
+	pdClient, err := pd.NewClient(pdAddrs, security)
+	if err != nil {
+		log.Fatal("failed to create PD client", zap.Error(err))
+		return retCtx, err
+	}
+	defer pdClient.Close()
+
+	region, peer, err := pdClient.GetRegion(context.Background(), []byte(key))
+	if err != nil {
+		return retCtx, fmt.Errorf("failed to get region by key %s: %v", key, err)
+	}
+	if region == nil || peer == nil {
+		return retCtx, fmt.Errorf("no region found with key %s", key)
+	}
+	retCtx = kvrpcpb.Context{
+		RegionId:    region.GetId(),
+		RegionEpoch: region.GetRegionEpoch(),
+		Peer: &metapb.Peer{
+			Id:      peer.GetId(),
+			StoreId: peer.GetStoreId(),
+		},
+	}
+	return retCtx, nil
+}
+
 // get 函数调用 TinyKV 的 RawGet 接口获取键值
-func get(client tinykvpb.TinyKvClient, key string) (*kvrpcpb.RawGetResponse, error) {
-	ctx1 := kvrpcpb.Context{}
+func get(client tinykvpb.TinyKvClient, key string) (string, error) {
+	ctx1, err := getContextForGet(key)
+	if err != nil {
+		return "", err
+	}
 	req := &kvrpcpb.RawGetRequest{
 		Context: &ctx1,
 		Key:     []byte(key),
 		Cf:      "default",
 	}
 	ctx := context.Background()
-	return client.RawGet(ctx, req)
+	resp, err := client.RawGet(ctx, req)
+	if err != nil {
+		return "", err
+	}
+	if resp.NotFound {
+		fmt.Println("Key not found")
+	} else if len(resp.Error) != 0 {
+		fmt.Println(resp.Error)
+	} else if resp.RegionError != nil {
+		fmt.Printf("Region error: %s\n", resp.RegionError.String())
+	}
+	return string(resp.Value), nil
 }
 
 // set 函数调用 TinyKV 的 RawPut 接口设置键值
 func set(client tinykvpb.TinyKvClient, key, value string) error {
-	ctx1 := kvrpcpb.Context{}
+	ctx1, err := getContextForSet()
+	if err != nil {
+		return err
+	}
 	req := &kvrpcpb.RawPutRequest{
 		Context: &ctx1,
 		Key:     []byte(key),
@@ -435,7 +544,7 @@ func set(client tinykvpb.TinyKvClient, key, value string) error {
 	if resp.RegionError != nil {
 		return errors.New(resp.RegionError.String())
 	}
-	return err
+	return nil
 }
 
 // 获取所有节点信息的函数
