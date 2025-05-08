@@ -45,6 +45,9 @@ var (
 	tikvKey   string
 	tikvValue string
 
+	startVersionStr  string
+	commitVersionStr string
+
 	deployCmd = &cobra.Command{
 		Use:   "deploy",
 		Short: "deploy a local cluster",
@@ -339,6 +342,66 @@ var (
 		},
 	}
 
+	getByTxnCmd = &cobra.Command{
+		Use:   "getByTxn [key]",
+		Short: "Get a value by transaction",
+		Long:  "Get a value from the database using a transaction.",
+		Run: func(cmd *cobra.Command, args []string) {
+			// 解析命令行参数
+			addr := tikvAddr
+			key := tikvKey
+
+			// 建立 gRPC 连接
+			conn, err := grpc.Dial(addr, grpc.WithInsecure(),
+				grpc.WithKeepaliveParams(keepalive.ClientParameters{
+					Time:    3 * time.Second,
+					Timeout: 60 * time.Second,
+				}))
+			if err != nil {
+				log.Fatal("Failed to connect", zap.Error(err))
+			}
+			defer conn.Close()
+
+			client := tinykvpb.NewTinyKvClient(conn)
+
+			value, err := getByTxn(client, key)
+			if err != nil {
+				log.Fatal("Failed to get value by transaction", zap.Error(err))
+			}
+			fmt.Printf("Value: %s\n", value)
+		},
+	}
+
+	setByTxnCmd = &cobra.Command{
+		Use:   "setByTxn [key] [value]",
+		Short: "Set a value by transaction",
+		Long:  "Set a value in the database using a transaction.",
+		Run: func(cmd *cobra.Command, args []string) {
+			addr := tikvAddr
+			key := tikvKey
+			value := tikvValue
+
+			// 建立 gRPC 连接
+			conn, err := grpc.Dial(addr, grpc.WithInsecure(),
+				grpc.WithKeepaliveParams(keepalive.ClientParameters{
+					Time:    3 * time.Second,
+					Timeout: 60 * time.Second,
+				}))
+			if err != nil {
+				log.Fatal("Failed to connect", zap.Error(err))
+			}
+			defer conn.Close()
+
+			client := tinykvpb.NewTinyKvClient(conn)
+
+			err = setByTxn(client, key, value)
+			if err != nil {
+				log.Fatal("Failed to set key", zap.Error(err))
+			}
+			fmt.Println("Key set successfully")
+		},
+	}
+
 	scaleOutCmd = &cobra.Command{
 		Use:   "scale-out",
 		Short: "Scale out the cluster by adding a new tinykv node",
@@ -519,20 +582,19 @@ func get(client tinykvpb.TinyKvClient, key string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	req := &kvrpcpb.GetRequest{
+	req := &kvrpcpb.RawGetRequest{
 		Context: &ctx1,
 		Key:     []byte(key),
-		Version: ctx1.RegionEpoch.Version,
 	}
 	ctx := context.Background()
-	resp, err := client.KvGet(ctx, req)
+	resp, err := client.RawGet(ctx, req)
 	if err != nil {
 		return "", err
 	}
 	if resp.NotFound {
 		return "", errors.New("key not found")
-	} else if resp.Error != nil {
-		return "", errors.New(resp.Error.String())
+	} else if len(resp.Error) != 0 {
+		return "", errors.New(resp.Error)
 	} else if resp.RegionError != nil {
 		return "", errors.New(string(resp.RegionError.String()))
 	}
@@ -562,6 +624,98 @@ func set(client tinykvpb.TinyKvClient, key, value string) error {
 	if resp.RegionError != nil {
 		return errors.New(resp.RegionError.String())
 	}
+	return nil
+}
+
+func getByTxn(client tinykvpb.TinyKvClient, key string) (string, error) {
+	ctx1, err := getContextForGet(key)
+	if err != nil {
+		return "", err
+	}
+	commitVersion, _ := strconv.ParseUint(commitVersionStr, 10, 64)
+	// 准备 KvGet 请求
+	getReq := &kvrpcpb.GetRequest{
+		Context: &ctx1,
+		Key:     []byte(key),
+		Version: commitVersion,
+	}
+
+	// 调用 KvGet
+	getResp, err := client.KvGet(context.Background(), getReq)
+	if err != nil {
+		return "", err
+	}
+	if getResp.Error != nil {
+		return "", errors.New(getResp.Error.String())
+	}
+	if getResp.NotFound {
+		return "", errors.New("key not found")
+	}
+	if getResp.RegionError != nil {
+		return "", errors.New(getResp.RegionError.String())
+	}
+	return string(getResp.Value), nil
+}
+
+func setByTxn(client tinykvpb.TinyKvClient, key, value string) error {
+	ctx1, err := getContextForSet()
+	if err != nil {
+		return err
+	}
+	// 初始化请求上下文
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// 定义事务相关参数
+	startVersion, _ := strconv.ParseUint(startVersionStr, 10, 64)
+	commitVersion, _ := strconv.ParseUint(commitVersionStr, 10, 64)
+
+	primaryKey := []byte("primary_key")
+	k := []byte(key)
+	v := []byte(value)
+
+	// 准备 KvPrewrite 请求
+	mutation := &kvrpcpb.Mutation{
+		Op:    kvrpcpb.Op_Put,
+		Key:   k,
+		Value: v,
+	}
+	prewriteReq := &kvrpcpb.PrewriteRequest{
+		// 这里需要根据实际情况填充 Context，示例中使用空值
+		Context:      &ctx1,
+		Mutations:    []*kvrpcpb.Mutation{mutation},
+		PrimaryLock:  primaryKey,
+		StartVersion: startVersion,
+		LockTtl:      1000, // 锁的生存时间，单位毫秒
+	}
+
+	// 调用 KvPrewrite
+	prewriteResp, err := client.KvPrewrite(ctx, prewriteReq)
+	if err != nil {
+		return err
+	}
+	if len(prewriteResp.Errors) > 0 {
+		return errors.New(prewriteResp.Errors[0].String())
+	}
+	fmt.Println("KvPrewrite 成功")
+
+	// 准备 KvCommit 请求
+	commitReq := &kvrpcpb.CommitRequest{
+		Context:       &ctx1,
+		StartVersion:  startVersion,
+		Keys:          [][]byte{[]byte(key)},
+		CommitVersion: commitVersion,
+	}
+
+	// 调用 KvCommit
+	commitResp, err := client.KvCommit(ctx, commitReq)
+	if err != nil {
+		return err
+	}
+	if commitResp.Error != nil {
+		return errors.New(commitResp.Error.String())
+	}
+	fmt.Println("通过事务写入成功")
 	return nil
 }
 
@@ -686,11 +840,21 @@ func init() {
 
 	getCmd.Flags().StringVarP(&tikvAddr, "tikv_addr", "", "127.0.0.1:20160", "TinyKV server address")
 	setCmd.Flags().StringVarP(&tikvAddr, "tikv_addr", "", "127.0.0.1:20160", "TinyKV server address")
+	getByTxnCmd.Flags().StringVarP(&tikvAddr, "tikv_addr", "", "127.0.0.1:20160", "TinyKV server address")
+	setByTxnCmd.Flags().StringVarP(&tikvAddr, "tikv_addr", "", "127.0.0.1:20160", "TinyKV server address")
 
 	getCmd.Flags().StringVarP(&tikvKey, "key", "", "", "Key")
 	setCmd.Flags().StringVarP(&tikvKey, "key", "", "", "Key")
+	getByTxnCmd.Flags().StringVarP(&tikvKey, "key", "", "", "Key")
+	setByTxnCmd.Flags().StringVarP(&tikvKey, "key", "", "", "Key")
 
-	setCmd.Flags().StringVarP(&tikvValue, "value", "", "", "Valuet")
+	setCmd.Flags().StringVarP(&tikvValue, "value", "", "", "Value")
+	setByTxnCmd.Flags().StringVarP(&tikvValue, "value", "", "", "Value")
+
+	setByTxnCmd.Flags().StringVarP(&commitVersionStr, "commitVersion", "", "", "commitVersion")
+	setByTxnCmd.Flags().StringVarP(&startVersionStr, "startVersion", "", "", "startVersion")
+
+	getByTxnCmd.Flags().StringVarP(&commitVersionStr, "commitVersion", "", "", "commitVersion")
 }
 
 func main() {
