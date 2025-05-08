@@ -3,13 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"google.golang.org/grpc/keepalive"
 	"net"
 	"os"
 	"os/exec"
 	"path"
 	"strconv"
 	"time"
+
+	"google.golang.org/grpc/keepalive"
 
 	"github.com/pingcap-incubator/tinykv/proto/pkg/kvrpcpb"
 	"github.com/pingcap-incubator/tinykv/proto/pkg/tinykvpb"
@@ -302,6 +303,10 @@ var (
 			}
 			if getResp.NotFound {
 				fmt.Println("Key not found")
+			} else if len(getResp.Error) != 0 {
+				fmt.Println(getResp.Error)
+			} else if getResp.RegionError != nil {
+				fmt.Printf("Region error: %s\n", getResp.RegionError.String())
 			} else {
 				fmt.Printf("Value: %s\n", string(getResp.Value))
 			}
@@ -420,7 +425,16 @@ func set(client tinykvpb.TinyKvClient, key, value string) error {
 		Cf:      "default",
 	}
 	ctx := context.Background()
-	_, err := client.RawPut(ctx, req)
+	resp, err := client.RawPut(ctx, req)
+	if err != nil {
+		return err
+	}
+	if len(resp.Error) != 0 {
+		return errors.New(resp.Error)
+	}
+	if resp.RegionError != nil {
+		return errors.New(resp.RegionError.String())
+	}
 	return err
 }
 
