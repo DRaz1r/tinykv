@@ -718,7 +718,7 @@ func setByTxn(client tinykvpb.TinyKvClient, key, value string) error {
 		return err
 	}
 	// 初始化请求上下文
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	// 定义事务相关参数
