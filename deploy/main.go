@@ -3,13 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pingcap-incubator/tinykv/proto/pkg/metapb"
 	"net"
 	"os"
 	"os/exec"
 	"path"
 	"strconv"
 	"time"
+
+	"github.com/pingcap-incubator/tinykv/proto/pkg/metapb"
 
 	"google.golang.org/grpc/keepalive"
 
@@ -342,6 +343,36 @@ var (
 		},
 	}
 
+	// 定义 rawDelete 命令
+	rawDeleteCmd = &cobra.Command{
+		Use:   "rawDelete",
+		Short: "Delete a key from TinyKV using RawDelete",
+		Run: func(cmd *cobra.Command, args []string) {
+			// 解析命令行参数
+			addr := tikvAddr
+			key := tikvKey
+
+			// 建立 gRPC 连接
+			conn, err := grpc.Dial(addr, grpc.WithInsecure(),
+				grpc.WithKeepaliveParams(keepalive.ClientParameters{
+					Time:    3 * time.Second,
+					Timeout: 60 * time.Second,
+				}))
+			if err != nil {
+				log.Fatal("Failed to connect", zap.Error(err))
+			}
+			defer conn.Close()
+
+			client := tinykvpb.NewTinyKvClient(conn)
+
+			err = delete(client, key)
+			if err != nil {
+				log.Fatal("Failed to delete key", zap.Error(err))
+			}
+			fmt.Println("Key deleted successfully")
+		},
+	}
+
 	getByTxnCmd = &cobra.Command{
 		Use:   "getByTxn [key]",
 		Short: "Get a value by transaction",
@@ -628,6 +659,30 @@ func set(client tinykvpb.TinyKvClient, key, value string) error {
 	return nil
 }
 
+func delete(client tinykvpb.TinyKvClient, key string) error {
+	ctx1, err := getContextForSet()
+	if err != nil {
+		return err
+	}
+	req := &kvrpcpb.RawDeleteRequest{
+		Context: &ctx1,
+		Key:     []byte(key),
+		Cf:      "default",
+	}
+	ctx := context.Background()
+	resp, err := client.RawDelete(ctx, req)
+	if err != nil {
+		return err
+	}
+	if len(resp.Error) != 0 {
+		return errors.New(resp.Error)
+	}
+	if resp.RegionError != nil {
+		return errors.New(resp.RegionError.String())
+	}
+	return nil
+}
+
 func getByTxn(client tinykvpb.TinyKvClient, key string) (string, error) {
 	ctx1, err := getContextForGet(key)
 	if err != nil {
@@ -689,7 +744,7 @@ func setByTxn(client tinykvpb.TinyKvClient, key, value string) error {
 		StartVersion: startVersion,
 		LockTtl:      100000, // 锁的生存时间，单位毫秒
 	}
-	time.Sleep(10000 * 1000)
+	time.Sleep(10 * 1000 * 1000 * 1000)
 	// 调用 KvPrewrite
 	prewriteResp, err := client.KvPrewrite(ctx, prewriteReq)
 	if err != nil {
