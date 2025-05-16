@@ -344,7 +344,7 @@ var (
 	}
 
 	// 定义 rawDelete 命令
-	rawDeleteCmd = &cobra.Command{
+	deleteCmd = &cobra.Command{
 		Use:   "rawDelete",
 		Short: "Delete a key from TinyKV using RawDelete",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -886,17 +886,20 @@ func init() {
 	rootCmd.AddCommand(getNodesCmd)
 	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(setCmd)
+	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(scaleOutCmd)
 	rootCmd.AddCommand(setByTxnCmd)
 	rootCmd.AddCommand(getByTxnCmd)
 
 	getCmd.Flags().StringVarP(&tikvAddr, "tikv_addr", "", "127.0.0.1:20160", "TinyKV server address")
 	setCmd.Flags().StringVarP(&tikvAddr, "tikv_addr", "", "127.0.0.1:20160", "TinyKV server address")
+	deleteCmd.Flags().StringVarP(&tikvAddr, "tikv_addr", "", "127.0.0.1:20160", "TinyKV server address")
 	getByTxnCmd.Flags().StringVarP(&tikvAddr, "tikv_addr", "", "127.0.0.1:20160", "TinyKV server address")
 	setByTxnCmd.Flags().StringVarP(&tikvAddr, "tikv_addr", "", "127.0.0.1:20160", "TinyKV server address")
 
 	getCmd.Flags().StringVarP(&tikvKey, "key", "", "", "Key")
 	setCmd.Flags().StringVarP(&tikvKey, "key", "", "", "Key")
+	deleteCmd.Flags().StringVarP(&tikvKey, "key", "", "", "Key")
 	getByTxnCmd.Flags().StringVarP(&tikvKey, "key", "", "", "Key")
 	setByTxnCmd.Flags().StringVarP(&tikvKey, "key", "", "", "Key")
 
