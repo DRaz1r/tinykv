@@ -872,9 +872,6 @@ func waitPortUse(waitPorts []int) error {
 }
 
 func init() {
-	rootCmd.Flags().IntVarP(&nodeNumber, "num", "n", 3, "the number of the tinykv servers")
-	rootCmd.Flags().StringVarP(&deployPath, "deploy_path", "d", "./bin/deploy", "the deploy path")
-	rootCmd.Flags().StringVarP(&binaryPath, "binary_path", "b", "./bin", "the binary path")
 
 	rootCmd.AddCommand(deployCmd)
 	rootCmd.AddCommand(startCmd)
@@ -888,6 +885,26 @@ func init() {
 	rootCmd.AddCommand(scaleOutCmd)
 	rootCmd.AddCommand(setByTxnCmd)
 	rootCmd.AddCommand(getByTxnCmd)
+
+	deployCmd.Flags().IntVarP(&nodeNumber, "num", "n", 3, "the number of the tinykv servers")
+	startCmd.Flags().IntVarP(&nodeNumber, "num", "n", 3, "the number of the tinykv servers")
+	stopCmd.Flags().IntVarP(&nodeNumber, "num", "n", 3, "the number of the tinykv servers")
+	upgradeCmd.Flags().IntVarP(&nodeNumber, "num", "n", 3, "the number of the tinykv servers")
+	scaleOutCmd.Flags().IntVarP(&nodeNumber, "num", "n", 3, "the number of the tinykv servers")
+
+	deployCmd.Flags().StringVarP(&deployPath, "deploy_path", "d", "./bin/deploy", "the deploy path")
+	startCmd.Flags().StringVarP(&deployPath, "deploy_path", "d", "./bin/deploy", "the deploy path")
+	stopCmd.Flags().StringVarP(&deployPath, "deploy_path", "d", "./bin/deploy", "the deploy path")
+	destroyCmd.Flags().StringVarP(&deployPath, "deploy_path", "d", "./bin/deploy", "the deploy path")
+	upgradeCmd.Flags().StringVarP(&deployPath, "deploy_path", "d", "./bin/deploy", "the deploy path")
+	scaleOutCmd.Flags().StringVarP(&deployPath, "deploy_path", "d", "./bin/deploy", "the deploy path")
+
+	deployCmd.Flags().StringVarP(&binaryPath, "binary_path", "b", "./bin", "the binary path")
+	startCmd.Flags().StringVarP(&binaryPath, "binary_path", "b", "./bin", "the binary path")
+	stopCmd.Flags().StringVarP(&binaryPath, "binary_path", "b", "./bin", "the binary path")
+	destroyCmd.Flags().StringVarP(&binaryPath, "binary_path", "b", "./bin", "the binary path")
+	upgradeCmd.Flags().StringVarP(&binaryPath, "binary_path", "b", "./bin", "the binary path")
+	scaleOutCmd.Flags().StringVarP(&binaryPath, "binary_path", "b", "./bin", "the binary path")
 
 	getCmd.Flags().StringVarP(&tikvAddr, "tikv_addr", "", "127.0.0.1:20160", "TinyKV server address")
 	setCmd.Flags().StringVarP(&tikvAddr, "tikv_addr", "", "127.0.0.1:20160", "TinyKV server address")
