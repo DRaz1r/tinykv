@@ -345,7 +345,7 @@ var (
 
 	// 定义 rawDelete 命令
 	deleteCmd = &cobra.Command{
-		Use:   "rawDelete",
+		Use:   "delete",
 		Short: "Delete a key from TinyKV using RawDelete",
 		Run: func(cmd *cobra.Command, args []string) {
 			// 解析命令行参数
@@ -415,7 +415,6 @@ var (
 			// 建立 gRPC 连接
 			conn, err := grpc.Dial(addr, grpc.WithInsecure(),
 				grpc.WithKeepaliveParams(keepalive.ClientParameters{
-					Time:    3 * time.Second,
 					Timeout: 60 * time.Second,
 				}))
 			if err != nil {
@@ -744,7 +743,6 @@ func setByTxn(client tinykvpb.TinyKvClient, key, value string) error {
 		StartVersion: startVersion,
 		LockTtl:      100000, // 锁的生存时间，单位毫秒
 	}
-	time.Sleep(10 * 1000 * 1000 * 1000)
 	// 调用 KvPrewrite
 	prewriteResp, err := client.KvPrewrite(ctx, prewriteReq)
 	if err != nil {
@@ -754,7 +752,7 @@ func setByTxn(client tinykvpb.TinyKvClient, key, value string) error {
 		return errors.New(prewriteResp.Errors[0].String())
 	}
 	fmt.Println("KvPrewrite 成功")
-
+	time.Sleep(10 * 1000 * 1000 * 1000)
 	// 准备 KvCommit 请求
 	commitReq := &kvrpcpb.CommitRequest{
 		Context:       &ctx1,
