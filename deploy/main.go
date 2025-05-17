@@ -256,7 +256,7 @@ var (
 
 	// 新增获取节点信息的命令
 	getNodesCmd = &cobra.Command{
-		Use:   "get-nodes",
+		Use:   "list",
 		Short: "get all tinykv nodes info",
 		Run: func(cmd *cobra.Command, args []string) {
 			// 实例化 Client
