@@ -16,6 +16,7 @@ type Scanner struct {
 // NewScanner creates a new scanner ready to read from the snapshot in txn.
 func NewScanner(startKey []byte, txn *RoTxn) *Scanner {
 	writeIter := txn.Reader.IterCF(engine_util.CfWrite)
+	// 利用 TsMax 来代表自动提交事务的最大时间戳。
 	writeIter.Seek(EncodeKey(startKey, TsMax))
 	return &Scanner{
 		writeIter: writeIter,
@@ -35,11 +36,12 @@ func (scan *Scanner) Next() ([]byte, []byte, error) {
 			// The underlying iterator is exhausted - we've reached the end of the DB.
 			return nil, nil, nil
 		}
-
+		// 顺序读取 CfWrite（从大 ts 到小 ts）
 		item := scan.writeIter.Item()
 		userKey := DecodeUserKey(item.Key())
 		commitTs := decodeTimestamp(item.Key())
 
+		// 跳过无效版本（大于事务 start_ts 的、非 Put 类型的）
 		if commitTs >= scan.txn.StartTS {
 			// The key was not committed before our transaction started, find an earlier key.
 			scan.writeIter.Seek(EncodeKey(userKey, commitTs-1))

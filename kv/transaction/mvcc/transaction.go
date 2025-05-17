@@ -68,6 +68,7 @@ func (txn *MvccTxnStub) MostRecentWrite(key []byte) (*Write, uint64, error) {
 func EncodeKey(key []byte, ts uint64) []byte {
 	encodedKey := codec.EncodeBytes(key)
 	newKey := append(encodedKey, make([]byte, 8)...)
+	// Key 会附加一个编码后的 ^ts（ts 的补码） 确保大版本排在小版本前，便于快速读取“最新可见版本”。
 	binary.BigEndian.PutUint64(newKey[len(encodedKey):], ^ts)
 	return newKey
 }
@@ -173,6 +174,7 @@ func (txn *RoTxn) CurrentWrite(key []byte) (*Write, uint64, error) {
 // GetValue finds the value for key, valid at the start timestamp of this transaction.
 // I.e., the most recent value committed before the start of this transaction.
 func (txn *RoTxn) GetValue(key []byte) ([]byte, error) {
+	// 从 CfWrite 中找 <= StartTS 的最近一条有效写入记录
 	iter := txn.Reader.IterCF(engine_util.CfWrite)
 	defer iter.Close()
 	bts := [8]byte{}
@@ -193,6 +195,7 @@ func (txn *RoTxn) GetValue(key []byte) ([]byte, error) {
 			return nil, err
 		}
 		switch write.Kind {
+		// 若类型为 Put，则再从 CfDefault 中读取其值（根据 StartTS 定位）
 		case WriteKindPut:
 			return txn.Reader.GetCF(engine_util.CfDefault, EncodeKey(key, write.StartTS))
 		case WriteKindDelete:

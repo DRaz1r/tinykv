@@ -19,6 +19,8 @@ import (
 // to ensure that latching is atomic and consistent. Since the mutex is a global lock, it would cause intolerable contention
 // in a real system.
 
+// 为实现 KV 并发安全所引入的“每个 key 一把锁”的机制，确保多个事务不会同时写相同的 key。
+
 type Latches struct {
 	// Before modifying any property of a key, the thread must have the latch for that key. `Latches` maps each latched
 	// key to a WaitGroup. Threads who find a key locked should wait on that WaitGroup.

@@ -12,6 +12,7 @@ import (
 
 const TsMax uint64 = ^uint64(0)
 
+// 锁以 key 为单位存储在 CfLock。
 type Lock struct {
 	Primary []byte
 	Ts      uint64
