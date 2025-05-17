@@ -42,8 +42,7 @@ func (s *StandAloneStorage) Stop() error {
 // Reader 方法
 // ctx 表示一个上下文对象，用于存储一些请求的元数据
 func (s *StandAloneStorage) Reader(ctx *kvrpcpb.Context) (storage.StorageReader, error) {
-	// // YOUR CODE HERE (lab1).
-
+	// CODE HERE.
 	// 创建一个新的 Badger 事务
 	txn := s.db.NewTransaction(false) // false: 只读事务
 	// 创建并返回一个 BadgerReader 实例
@@ -53,7 +52,7 @@ func (s *StandAloneStorage) Reader(ctx *kvrpcpb.Context) (storage.StorageReader,
 
 // Write 方法
 func (s *StandAloneStorage) Write(ctx *kvrpcpb.Context, batch []storage.Modify) error {
-	// YOUR CODE HERE (lab1).
+	// CODE HERE.
 	// Try to check the definition of `storage.Modify` and txn interface of `badger`.
 	// As the column family is not supported by `badger`, a wrapper is used to simulate it.
 	// return nil

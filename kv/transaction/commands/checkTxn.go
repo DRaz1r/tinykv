@@ -42,7 +42,7 @@ func (c *CheckTxnStatus) PrepareWrites(txn *mvcc.MvccTxn) (interface{}, error) {
 		// 如果锁已过期，系统需要将锁回滚，并标记事务为失败
 		if physical(lock.Ts)+lock.Ttl < physical(c.request.CurrentTs) {
 
-			// YOUR CODE HERE (lab2).
+			// CODE HERE.
 			// Lock has expired, try to rollback it. `mvcc.WriteKindRollback` could be used to
 			// represent the type. Try using the interfaces provided by `mvcc.MvccTxn`.
 			// 锁已过期，尝试回滚它。可以使用 `mvcc.WriteKindRollback` 表示类型。
@@ -98,7 +98,7 @@ func (c *CheckTxnStatus) PrepareWrites(txn *mvcc.MvccTxn) (interface{}, error) {
 	// 不存在任何记录，插入回滚记录，确保一致性
 	if existingWrite == nil {
 
-		// YOUR CODE HERE (lab2).
+		// CODE HERE.
 		// The lock never existed, it's still needed to put a rollback record on it so that
 		// the stale transaction commands such as prewrite on the key will fail.
 		// Note try to set correct `response.Action`,

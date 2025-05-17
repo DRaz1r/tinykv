@@ -83,7 +83,7 @@ func rollbackKey(key []byte, txn *mvcc.MvccTxn, response interface{}) (interface
 
 		// 如果没有写入记录，可能是预写丢失了。无论如何，我们插入一个回滚写入。
 		if existingWrite == nil {
-			// YOUR CODE HERE (lab2).
+			// CODE HERE.
 			// 插入回滚记录
 			write := mvcc.Write{StartTS: txn.StartTS, Kind: mvcc.WriteKindRollback}
 			txn.PutWrite(key, txn.StartTS, &write)

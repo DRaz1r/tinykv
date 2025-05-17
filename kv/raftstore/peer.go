@@ -441,7 +441,7 @@ func (p *peer) HandleRaftReady(msgs []message.Msg, pdScheduler chan<- worker.Tas
 		return nil, msgs
 	}
 
-	// YOUR CODE HERE (lab1). There are some missing code pars marked with `Hint` above, try to finish them.
+	// CODE HERE. There are some missing code pars marked with `Hint` above, try to finish them.
 	// Hint1: check if there's ready to be processed, if no return directly.
 	// panic("not implemented yet")
 	if !p.RaftGroup.HasReady() { // tinykv/raft/rawnode.go
@@ -522,7 +522,7 @@ func (p *peer) HandleRaftReady(msgs []message.Msg, pdScheduler chan<- worker.Tas
 		}
 	}
 
-	// YOUR CODE HERE (lab1). There are some missing code pars marked with `Hint` above, try to finish them.
+	// CODE HERE. There are some missing code pars marked with `Hint` above, try to finish them.
 	// Hint2: Try to advance the states in the raft group of this peer after processing the raft ready.
 	//        Check about the `Advance` method in for the raft group.
 	// 推进 Raft 的状态，使其知道之前的 Ready 状态已经被处理，进入下一步

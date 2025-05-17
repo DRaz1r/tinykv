@@ -49,7 +49,7 @@ func (rl *ResolveLock) PrepareWrites(txn *mvcc.MvccTxn) (interface{}, error) {
 		zap.Uint64("commit_ts", commitTs))
 	// panic("ResolveLock is not implemented yet")
 	for _, kl := range rl.keyLocks {
-		// YOUR CODE HERE (lab2).
+		// CODE HERE.
 		// Try to commit the key if the transaction is committed already, or try to rollback the key if it's not.
 		// The `commitKey` and `rollbackKey` functions could be useful.
 		// 尝试提交键，如果事务已经提交；或者尝试回滚键，如果事务未提交。

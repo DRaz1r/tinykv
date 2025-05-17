@@ -105,7 +105,7 @@ func (p *Prewrite) prewriteMutation(txn *mvcc.MvccTxn, mut *kvrpcpb.Mutation) (*
 	log.Debug("prewrite key", zap.Uint64("start_ts", txn.StartTS),
 		zap.String("key", hex.EncodeToString(key)))
 
-	// YOUR CODE HERE (lab2).
+	// CODE HERE.
 	// Check for write conflicts.
 	// Hint: Check the interafaces provided by `mvcc.MvccTxn`. The error type `kvrpcpb.WriteConflict` is used
 	//		 denote to write conflict error, try to set error information properly in the `kvrpcpb.KeyError`
@@ -132,7 +132,7 @@ func (p *Prewrite) prewriteMutation(txn *mvcc.MvccTxn, mut *kvrpcpb.Mutation) (*
 		return keyError, nil
 	}
 
-	// YOUR CODE HERE (lab2).
+	// CODE HERE.
 	// Check if key is locked. Report key is locked error if lock does exist, note the key could be locked
 	// by this transaction already and the current prewrite request is stale.
 	// 检查键是否被锁定。如果存在锁定错误则报告，注意键可能已经被该事务锁定，而当前的预写请求是过时的。
@@ -161,10 +161,10 @@ func (p *Prewrite) prewriteMutation(txn *mvcc.MvccTxn, mut *kvrpcpb.Mutation) (*
 		}
 	}
 
-	// YOUR CODE HERE (lab2).
+	// CODE HERE.
 	// Write a lock and value.
 	// Hint: Check the interfaces provided by `mvccTxn.Txn`.
-	// YOUR CODE HERE (lab2).
+	// CODE HERE.
 	// 写入锁和值。
 	// 提示：检查 `mvccTxn.Txn` 提供的接口。
 	// tinykv/kv/transaction/mvcc/transaction.go

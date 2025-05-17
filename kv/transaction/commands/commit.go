@@ -33,7 +33,7 @@ func NewCommit(request *kvrpcpb.CommitRequest) Commit {
 func (c *Commit) PrepareWrites(txn *mvcc.MvccTxn) (interface{}, error) {
 	commitTs := c.request.CommitVersion
 
-	// YOUR CODE HERE (lab2).
+	// CODE HERE.
 	// Check if the commitTs is invalid, the commitTs must be greater than the transaction startTs. If not
 	// report unexpected error.
 	// 检查 commitTs 是否有效，commitTs 必须大于事务的 startTs。如果不是，则报告意外错误。
@@ -73,7 +73,7 @@ func commitKey(key []byte, commitTs uint64, txn *mvcc.MvccTxn, response interfac
 
 	// 如果锁不存在或锁的时间戳不匹配
 	if lock == nil || lock.Ts != txn.StartTS {
-		// YOUR CODE HERE (lab2).
+		// CODE HERE.
 		// Key is locked by a different transaction, or there is no lock on the key. It's needed to
 		// check the commit/rollback record for this key, if nothing is found report lock not found
 		// error. Also the commit request could be stale that it's already committed or rolled back.

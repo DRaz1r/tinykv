@@ -772,7 +772,7 @@ func (d *peerMsgHandler) preProposeRaftCommand(req *raft_cmdpb.RaftCmdRequest) e
 }
 
 func (d *peerMsgHandler) proposeRaftCommand(msg *raft_cmdpb.RaftCmdRequest, cb *message.Callback) {
-	// YOUR CODE HERE (lab1).
+	// CODE HERE.
 	// Hint1: do `preProposeRaftCommand` check for the command, if the check fails, need to execute the
 	// callback function and return the error results. `ErrResp` is useful to generate error response.
 
