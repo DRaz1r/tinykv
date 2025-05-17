@@ -51,3 +51,9 @@
     ROLLBACK;
     SELECT * FROM USERS;
 ```
+
+# 其他
+```
+    lsof -i :8080
+    kill -9 PID
+```
